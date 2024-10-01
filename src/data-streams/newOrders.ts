@@ -62,7 +62,7 @@ async function binanceTradeStream(
         }
 
         // Notify whale order
-        if (usdSize >= 1_000_000) {
+        if (usdSize >= 2_000_000) {
           notifier.notify({
             title: `${trophy} Whale ${tradeType} order for ${displaySymbol}`,
             message: `$${usdSize.toLocaleString("en-US", {

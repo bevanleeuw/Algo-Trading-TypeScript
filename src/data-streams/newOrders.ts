@@ -2,17 +2,13 @@ import WebSocket from "ws";
 import fs from "fs";
 import { DateTime } from "luxon";
 import chalk from "chalk";
+import notifier from "node-notifier";
 
-// List of symbols you want to track
-const symbols = [
-  "btcusdt",
-  "ethusdt",
-  "solusdt",
-  "bnbusdt",
-  "dogeusdt",
-  "wifusdt",
-];
+// Websocket url from Binance
 const websocketUrlBase = "wss://fstream.binance.com/ws/";
+
+// List of symbols you want to track and where to save it
+const symbols = ["xrpusdt", "btcusdt"];
 const tradesFilename = "binance_trades.csv";
 
 // Check if the CSV file exists
@@ -56,35 +52,36 @@ async function binanceTradeStream(
       if (usdSize > 14999) {
         const tradeType = isBuyerMaker ? "SELL" : "BUY";
         let color = tradeType === "SELL" ? chalk.red : chalk.green;
-        let stars = "";
-        let bold = false;
-        let repeat = 1;
+        let trophy = tradeType === "BUY" ? "🤑" : "😡";
 
         if (usdSize >= 500000) {
-          stars = "**";
-          repeat = 1;
-          color = tradeType === "SELL" ? chalk.magenta : chalk.blue;
+          trophy = tradeType === "BUY" ? "🚀" : "🐻";
+          color = tradeType === "SELL" ? chalk.redBright : chalk.greenBright;
         } else if (usdSize >= 100000) {
-          stars = "*";
-          repeat = 1;
+          trophy = tradeType === "BUY" ? "🔥" : "🐻";
         }
 
-        if (usdSize >= 50000) {
-          bold = true;
+        // Notify whale order
+        if (usdSize >= 1_000_000) {
+          notifier.notify({
+            title: `${trophy} Whale ${tradeType} order for ${displaySymbol}`,
+            message: `$${usdSize.toLocaleString("en-US", {
+              maximumFractionDigits: 0,
+            })} `,
+            sound: true,
+          });
         }
 
-        const output = `${stars} ${tradeType} ${displaySymbol} ${readableTradeTime} $${usdSize.toLocaleString(
+        const output = `${trophy} ${tradeType} ${displaySymbol} ${readableTradeTime} $${usdSize.toLocaleString(
           "en-US",
           { maximumFractionDigits: 0 }
         )} `;
         const coloredOutput = color(output);
-        const finalOutput = bold ? chalk.bold(coloredOutput) : coloredOutput;
 
-        for (let i = 0; i < repeat; i++) {
-          console.log(finalOutput);
-        }
+        // Output the order to console
+        console.log(coloredOutput);
 
-        // Log to CSV
+        // Log the order in the CSV file
         fs.appendFileSync(
           filename,
           `${eventTime},${symbol.toUpperCase()},${aggTradeId},${price},${quantity},${tradeTime},${isBuyerMaker}\n`
@@ -104,12 +101,10 @@ async function binanceTradeStream(
 }
 
 async function main() {
-  const filename = "binance_trades.csv";
-
   // Create a connection for each symbol trade stream
   for (const symbol of symbols) {
     const streamUrl = `${websocketUrlBase}${symbol}@aggTrade`;
-    binanceTradeStream(streamUrl, symbol, filename);
+    binanceTradeStream(streamUrl, symbol, tradesFilename);
   }
 }
 
